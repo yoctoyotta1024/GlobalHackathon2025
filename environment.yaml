@@ -1,4 +1,4 @@
-name: myenv
+name: curtainenv
 channels:
   - conda-forge
 dependencies:

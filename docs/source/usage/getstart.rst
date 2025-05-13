@@ -3,11 +3,11 @@
 Getting Started
 ===============
 
-Clone NextGEMS_hackathon_cycle4's GitHub repository:
+Clone GlobalHackathon2025's GitHub repository:
 
 .. code-block:: console
 
-  $ git clone https://github.com/yoctoyotta1024/NextGEMS_hackathon_cycle4.git
+  $ git clone https://github.com/yoctoyotta1024/GlobalHackathon2025.git
 
 and install the pre-commit hooks:
 

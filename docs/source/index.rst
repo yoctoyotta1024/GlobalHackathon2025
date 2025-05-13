@@ -1,9 +1,9 @@
-.. NextGEMS_hackathon_cycle4 documentation master file, based off sphinx-quickstart.
+.. GlobalHackathon2025 documentation master file, based off sphinx-quickstart.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to some Documentation from NextGEMS cycle4 Hackathon!
-=============================================================
+Welcome to some Documentation from Global Hackathon 2025!
+=========================================================
 
 .. note::
    Please consider that this project is under active development
@@ -16,7 +16,7 @@ Welcome to some Documentation from NextGEMS cycle4 Hackathon!
 
 To (locally) reproduce this project, simply clone the repository. You will need to run
 ``pre-commit install`` but other than that all the necessary packages for you to run & have fun
-should work given the environment.yml... If not, please raise an issue on the GitHub repository.
+should work given the environment.yaml... If not, please raise an issue on the GitHub repository.
 
 Time to get involved! Check out the :doc:`getting started page<usage/getstart>`.
 
@@ -41,7 +41,7 @@ Contents
    usage/getstart
    src/index
 
-   GitHub Repo <https://github.com/yoctoyotta1024/NextGEMS_hackathon_cycle4.git>
+   GitHub Repo <https://github.com/yoctoyotta1024/GlobalHackathon2025.git>
    usage/ourdocs
    usage/ourtests
    usage/contributing

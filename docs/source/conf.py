@@ -1,24 +1,3 @@
-'''
-Copyright (c) 2024 MPI-M, Clara Bayley
-
------ NextGEMS_hackathon_cycle4 -----
-File: conf.py
-Project: source
-Created Date: Tuesday 27th February 2024
-Author: Clara Bayley (CB)
-Additional Contributors:
------
-Last Modified: Tuesday 5th March 2024
-Modified By: CB
------
-License: BSD 3-Clause "New" or "Revised" License
-https://opensource.org/licenses/BSD-3-Clause
------
-File Description:
-config file for sphinx documentation
-'''
-
-
 # Configuration file for the Sphinx documentation builder.
 #
 # For the full list of built-in configuration values, see the documentation:
@@ -38,7 +17,7 @@ sys.path.insert(0, pathlib.Path(__file__).parents[2].resolve().as_posix())
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = 'NextGEMS_hackathon_cycle4'
+project = 'GlobalHackathon2025'
 license = 'BSD 3-Clause'
 copyright = '(2024) MPI-M, Clara Bayley'
 author = 'Clara Bayley & Other Developers'
