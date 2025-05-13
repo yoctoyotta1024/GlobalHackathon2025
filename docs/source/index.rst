@@ -23,15 +23,20 @@ Time to get involved! Check out the :doc:`getting started page<usage/getstart>`.
 Useful Links
 ------------
 
-* `Hackathon Starter Pack <https://pad.gwdg.de/nSKolAzGQY2zLz3oOr0QSQ?view>`_
+* `Global GitHub <https://digital-earths-global-hackathon.github.io/hk25/>`_
 
-* `EasyGEMS <https://easy.gems.dkrz.de/index.html>`_
+* `Hamburg node <https://digital-earths-global-hackathon.github.io/hamburg-node/#welcome>`_
 
-* `List of variables' names <https://owncloud.gwdg.de/index.php/s/G6xEfuoHOZLB3Kt>`_
+* `easy.gems <https://easy.gems.dkrz.de/>`_
 
-* `Interactive list of variables' locations <https://swift.dkrz.de/v1/dkrz_b381d76e-63d7-4aeb-96f0-dfd91e102d40/nextgems_prefinal/nextgems_prefinal_output_anim.html>`_
+* `easy.gems <https://easy.gems.dkrz.de/>`_
 
-* `Piotr Dziekan / NextGEMS_lowclouds project <https://gitlab.dkrz.de/b382446/nextgems_lowclouds>`_
+* `first steps <https://digital-earths-global-hackathon.github.io/hamburg-node/howtotech/>`_
+
+* `simple tutorials <https://github.com/digital-earths-global-hackathon/hk25-teams/tree/main/hk25-tutorials>`_
+
+* `ICON interactive overview <https://s3.eu-dkrz-1.dkrz.cloud/wrcp-hackathon/data/ICON/d3hp003.html>`_
+
 
 Contents
 --------
