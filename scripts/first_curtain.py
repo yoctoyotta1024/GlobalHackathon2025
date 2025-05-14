@@ -12,15 +12,20 @@ warnings.filterwarnings(
 )  # don't warn us about future package conflicts
 
 # %% ------------- INPUT PARAMETERS ------------- ###
-ec_day = "2020-05-10"  # format 'YYYY-MM-DD'
-ec_time = "T00:00:00"  # format T'hh:mm:ss'
-ec_lon_min = 30  # degrees
-ec_lon_max = 160  # degrees
-ec_lat_min = 6  # degrees
-ec_lat_max = 12  # degrees
+ec_year = "2024" # format 'YYYY'
+ec_month = "08" # format 'MM'
+ec_day = "01" # format 'DD'
+ec_start_time = "T0008"  # format T'hhmm'
+ec_end_time = "T0019"  # format T'hhmm'
+ec_lon_min = None # degrees
+ec_lon_max = None # degrees
+ec_lat_min = None # degrees
+ec_lat_max = None # degrees
 
-ec_data_path = Path("/work" / "mh0731" / "m301196" / "ecomip"/ "ftp.eorc.jaxa.jp" / "eorc" / "CPR" / "1B" / "xCa" / "2024" / "08" / "01")
-ec_file = ec_data_path / "ECA_J_CPR_NOM_1BS_20240801T0008_20240801T0019_00996H_vCa_corr_xCa.nc"
+ec_start_date = ec_year + ec_month + ec_day + ec_start_time
+ec_end_date = ec_year + ec_month + ec_day + ec_end_time
+ec_data_path = Path("/work") / "mh0731" / "m301196" / "ecomip"/ "ftp.eorc.jaxa.jp" / "eorc" / "CPR" / "1B" / "xCa" / ec_year / ec_month / ec_day
+ec_file = ec_data_path / f"ECA_J_CPR_NOM_1BS_{ec_start_date}_{ec_end_date}_00996H_vCa_corr_xCa.nc"
 
 current_location = "EU"
 model = "icon_d3hp003"
@@ -29,10 +34,9 @@ zoom = 5
 output_dir = Path.cwd() / "bin"
 
 # define name of exisiting or to-be-created weights file for this EC track
-weights_label = ec_day + ec_time.replace(":", "-")
+weights_label =  f"{ec_start_date}_{ec_end_date}"
 weights_file = Path(
-    "/work" / "mh0492" / "m301067" / "hackaton25" / "auxiliary-files" / "weights" / "weights_ec_tracks_{weights_label}.nc"
-)
+    "/work") / "mh0492" / "m301067" / "hackaton25" / "auxiliary-files" / "weights" / "weights_ec_tracks_{weights_label}.nc"
 ### -------------------------------------------- ###
 
 # %% function definitions
@@ -83,25 +87,18 @@ cat = intake.open_catalog(
 ds = cat[model](zoom=zoom).to_dask()
 
 # %% Load the EarthCARE track and select the time range
-ec_datetime = np.datetime64(f"{ec_day}{ec_time}") # TODO(ALL): use to generate ec file name
-start_time = ec_datetime - np.timedelta64(30, "m") # TODO(ALL): use to generate ec file name
-end_time = ec_datetime + np.timedelta64(30, "m") # TODO(ALL): use to generate ec file name
-
-ec_track = read_earthcare_track(ec_file)
-ec_track_lon = ec_track.lon
-ec_track_lat = ec_track.lat
-ec_track_time = ec_track.time
+ec_track_lon, ec_track_lat = read_earthcare_track(ec_file)
 
 # %% Trim track coordinates to be within the lat/lon bounds
-valid_indices = np.where(
-    (ec_track_lon >= ec_lon_min)
-    & (ec_track_lon <= ec_lon_max)
-    & (ec_track_lat >= ec_lat_min)
-    & (ec_track_lat <= ec_lat_min)
-)[0]
-ec_track_lon = ec_track_lon[valid_indices]
-ec_track_lat = ec_track_lat[valid_indices]
-ec_track_time = ec_track_time[valid_indices]
+if ec_lon_min is not None and ec_lon_max is not None and ec_lat_min is not None and ec_lat_max is not None:
+    valid_indices = np.where(
+        (ec_track_lon >= ec_lon_min)
+        & (ec_track_lon <= ec_lon_max)
+        & (ec_track_lat >= ec_lat_min)
+        & (ec_track_lat <= ec_lat_min)
+    )[0]
+    ec_track_lon = ec_track_lon[valid_indices]
+    ec_track_lat = ec_track_lat[valid_indices]
 
 # %% Interpolating the dataset to the EarthCARE track
 ds_curtain = interpolate_to_track(
@@ -112,13 +109,17 @@ ds_curtain = interpolate_to_track(
 ds_curtain = ds_curtain.assign(
     track_lon=("track", ec_track_lon.data),
     track_lat=("track", ec_track_lat.data),
-    track_time=("track", ec_track_time.data),
+)
+dataset.assign_attrs(
+    start_date=ec_start_date,
+    end_date=ec_end_date,
+    date_format='YYYYMMDDThhmm'
 )
 
 # %% save curtain data to netcdf file
 output_dir.mkdir(exist_ok=True)
 print(f"Writing curtain profiles in {output_dir}")
-curtain_label = ec_day + ec_time.replace(":", "-") + f"_{model}_zoom{zoom}"
+curtain_label = f"{ec_start_date}_{ec_end_date}_{model}_zoom{zoom}"
 curtain_file = output_dir / f"orcestra_ec-curtain_{curtain_label}.nc"
 ds_curtain.to_netcdf(curtain_file)
 print(f"Curtain extracted and saved in {curtain_file}")
