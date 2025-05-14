@@ -1,5 +1,6 @@
 # %% Import modules
 import easygems.remap as egr
+from easygems import healpix as egh
 import intake
 import numpy as np
 import xarray as xr
@@ -54,8 +55,13 @@ def interpolate_to_track(ds, weights_file, track_lon, track_lat=None):
         weights = xr.open_dataset(weights_file)
     else:
         print("computing weights using Delaunay triangulation")
-        ds_lon_deg = np.degrees(ds["clon"].values)
-        ds_lat_deg = np.degrees(ds["clat"].values)
+        ds = (
+            ds.rename_dims({"value": "cell"}).pipe(egh.attach_coords)
+            if "value" in ds.dims
+            else ds.pipe(egh.attach_coords)
+        )
+        ds_lon_deg = np.degrees(ds["lon"].values)
+        ds_lat_deg = np.degrees(ds["lat"].values)
         weights = egr.compute_weights_delaunay(
             points=(ds_lon_deg, ds_lat_deg),
             xi=(track_lon, track_lat),
@@ -67,7 +73,7 @@ def interpolate_to_track(ds, weights_file, track_lon, track_lat=None):
         egr.apply_weights,
         ds,
         kwargs=weights,
-        input_core_dims=[["ncells"]],
+        input_core_dims=[["cell"]],
         output_core_dims=[["track"]],
         output_dtypes=["f4"],
         vectorize=True,
