@@ -29,8 +29,6 @@ Useful Links
 
 * `easy.gems <https://easy.gems.dkrz.de/>`_
 
-* `easy.gems <https://easy.gems.dkrz.de/>`_
-
 * `first steps <https://digital-earths-global-hackathon.github.io/hamburg-node/howtotech/>`_
 
 * `simple tutorials <https://github.com/digital-earths-global-hackathon/hk25-teams/tree/main/hk25-tutorials>`_
