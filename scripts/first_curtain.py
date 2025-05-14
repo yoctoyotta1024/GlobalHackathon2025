@@ -20,31 +20,32 @@ ec_lat_min = 6  # degrees
 ec_lat_max = 12  # degrees
 
 current_location = "EU"
-model = "nicam_gl11"
+model = "icon_d3hp003"
 zoom = 5
 
 output_dir = Path.cwd() / "bin"
+
+# define name of exisiting or to-be-created weights file for this EC track
+weights_label = ec_day + ec_time.replace(":", "-")
+weights_file = Path(
+    "/work" / "mh0492" / "m301067" / "hackaton25" / "auxiliary-files" / "weights" / "weights_ec_tracks_{weights_label}.nc"
+)
 ### -------------------------------------------- ###
 
-
-# %% function deinfitions
-def interpolate_to_track(ds, track_lon, track_lat, clon_degrees, clat_degrees, day):
-    # Define the path for the weights file corresponding to this EC track
-    weights_path = Path(
-        f"/work/mh0492/m301067/ec-curtains/auxiliary-files/weights/weights_EC_tracks_{day}.nc"
-    )
-
-    if weights_path.is_file():
-        print("Load existing interpolation weights for this EC track")
-        weights = xr.open_dataset(weights_path)
+# %% function definitions
+def interpolate_to_track(ds, weights_file, track_lon, track_lat=None):
+    if weights_file.is_file():
+        print("loading existing interpolation weights for this EC track")
+        weights = xr.open_dataset(weights_file)
     else:
-        print("Compute weights using Delaunay triangulation")
+        print("computing weights using Delaunay triangulation")
+        ds_lon_deg = np.degrees(ds["clon"].values)
+        ds_lat_deg = np.degrees(ds["clat"].values)
         weights = egr.compute_weights_delaunay(
-            points=(clon_degrees, clat_degrees),
+            points=(ds_lon_deg, ds_lat_deg),
             xi=(track_lon, track_lat),
         )
-        # Save weights to a NetCDF file for future use
-        weights.to_netcdf(weights_path)
+        weights.to_netcdf(weights_file)
 
     # Apply weights to interpolate the dataset
     ds_interpolated = xr.apply_ufunc(
@@ -63,7 +64,6 @@ def interpolate_to_track(ds, track_lon, track_lat, clon_degrees, clat_degrees, d
     )
 
     return ds_interpolated
-
 
 # %% Load catalog and dataset
 cat = intake.open_catalog(
@@ -93,10 +93,8 @@ ec_track_lat = ec_track_lat[valid_indices]
 ec_track_time = ec_track_time[valid_indices]
 
 # %% Interpolating the dataset to the EarthCARE track
-ds_lon_deg = np.degrees(ds["clon"].values)
-ds_lat_deg = np.degrees(ds["clat"].values)
 ds_curtain = interpolate_to_track(
-    ds, ec_track_lon, ec_track_lat, ds_lon_deg, ds_lat_deg, ec_day
+    ds, weights_file, ec_track_lon, track_lat=ec_track_lat,
 )
 
 # Add track longitude, latitude, and time to the curtain datafile
@@ -109,7 +107,7 @@ ds_curtain = ds_curtain.assign(
 # %% save curtain data to netcdf file
 output_dir.mkdir(exist_ok=True)
 print(f"Writing curtain profiles in {output_dir}")
-savelabel = ec_day + ec_time.replace(":", "-")
-curtain_file = output_dir / f"orcestra_ec-curtain_{savelabel}.nc"
+curtain_label = ec_day + ec_time.replace(":", "-") + f"_{model}_zoom{zoom}"
+curtain_file = output_dir / f"orcestra_ec-curtain_{curtain_label}.nc"
 ds_curtain.to_netcdf(curtain_file)
 print(f"Curtain extracted and saved in {curtain_file}")
