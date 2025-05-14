@@ -71,10 +71,8 @@ def interpolate_to_track(ds, weights_file, track_lon, track_lat=None):
             if "value" in ds.dims
             else ds.pipe(egh.attach_coords)
         )
-        ds_lon_deg = np.degrees(ds["lon"].values)
-        ds_lat_deg = np.degrees(ds["lat"].values)
         weights = egr.compute_weights_delaunay(
-            points=(ds_lon_deg, ds_lat_deg),
+            points=(ds["lon"].values, ds["lat"].values),
             xi=(track_lon, track_lat),
         )
         weights.to_netcdf(weights_file)
