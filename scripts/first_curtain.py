@@ -20,7 +20,7 @@ ec_lat_min = 6  # degrees
 ec_lat_max = 12  # degrees
 
 current_location = "EU"
-model = "nicam_gl11"
+model = "icon_d3hp003"
 zoom = 5
 
 output_dir = Path.cwd() / "bin"
@@ -107,7 +107,7 @@ ds_curtain = ds_curtain.assign(
 # %% save curtain data to netcdf file
 output_dir.mkdir(exist_ok=True)
 print(f"Writing curtain profiles in {output_dir}")
-curtain_label = ec_day + ec_time.replace(":", "-")
+curtain_label = ec_day + ec_time.replace(":", "-") + f"_{model}_zoom{zoom}"
 curtain_file = output_dir / f"orcestra_ec-curtain_{curtain_label}.nc"
 ds_curtain.to_netcdf(curtain_file)
 print(f"Curtain extracted and saved in {curtain_file}")
