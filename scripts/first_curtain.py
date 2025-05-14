@@ -31,13 +31,17 @@ ec_file = ec_data_path / f"ECA_J_CPR_NOM_1BS_{ec_start_date}_{ec_end_date}_00996
 current_location = "EU"
 model = "icon_d3hp003"
 zoom = 5
-
-output_dir = Path.cwd() / "bin"
+mdl_year = "2020" # format 'YYYY'
+mdl_month = ec_month # format 'MM'
+mdl_day = ec_day # format 'DD'
+mdl_time = ec_start_time  # format T'hhmm'
 
 # define name of exisiting or to-be-created weights file for this EC track
-weights_label =  f"{ec_start_date}_{ec_end_date}"
+weights_label = f"{ec_start_date}_{ec_end_date}_{model}_zoom{zoom}"
 weights_file = Path(
-    "/work") / "mh0492" / "m301067" / "hackaton25" / "auxiliary-files" / "weights" / "weights_ec_tracks_{weights_label}.nc"
+    "/work") / "mh0492" / "m301067" / "hackaton25" / "auxiliary-files" / "weights" / f"weights_ec_tracks_{weights_label}.nc"
+
+curtain_dir = Path.cwd() / "bin"
 ### -------------------------------------------- ###
 
 # %% function definitions
@@ -86,11 +90,15 @@ def interpolate_to_track(ds, weights_file, track_lon, track_lat=None):
 
     return ds_interpolated
 
-# %% Load catalog and dataset
+# %% Load catalog and dataset at tiem nearest model time given
 cat = intake.open_catalog(
     "https://digital-earths-global-hackathon.github.io/catalog/catalog.yaml"
 )[current_location]
-ds = cat[model](zoom=zoom).to_dask()
+
+mdl_hour = mdl_time[1:3]
+mdl_min = mdl_time[3:6]
+mdl_datetime = np.datetime64(f"{mdl_year}-{mdl_month}-{mdl_day}T{mdl_hour}:{mdl_min}")
+ds = cat[model](zoom=zoom).to_dask().sel(time=mdl_datetime, method="nearest")
 
 # %% Load the EarthCARE track and select the time range
 ec_track_lon, ec_track_lat = read_earthcare_track(ec_file)
@@ -116,16 +124,15 @@ ds_curtain = ds_curtain.assign(
     track_lon=("track", ec_track_lon.data),
     track_lat=("track", ec_track_lat.data),
 )
-dataset.assign_attrs(
+ds.assign_attrs(
     start_date=ec_start_date,
     end_date=ec_end_date,
     date_format='YYYYMMDDThhmm'
 )
 
 # %% save curtain data to netcdf file
-output_dir.mkdir(exist_ok=True)
-print(f"Writing curtain profiles in {output_dir}")
+print(f"Writing curtain profiles in {curtain_dir}")
 curtain_label = f"{ec_start_date}_{ec_end_date}_{model}_zoom{zoom}"
-curtain_file = output_dir / f"orcestra_ec-curtain_{curtain_label}.nc"
-ds_curtain.to_netcdf(curtain_file)
-print(f"Curtain extracted and saved in {curtain_file}")
+curtain_file = curtain_dir / f"ec_curtain_{curtain_label}.zarr"
+ds_curtain.to_zarr(curtain_file)
+print(f"Curtain extracted and saved in {curtain_file.name}")
