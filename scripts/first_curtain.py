@@ -46,7 +46,7 @@ weights_label = f"{ec_start_date}_{ec_end_date}_{model}_zoom{zoom}"
 weights_file = weights_dir / f"weights_ec_tracks_{weights_label}.nc"
 
 # name of to-be-created curtain .zarr dataset for this ec track and model
-curtain_dir = Path.cwd() / "bin"
+curtain_dir = Path("/work") / "mh0492" / "m301067" / "hackaton25" / "curtains" / model_year / model_month / model_day
 curtain_label = f"{ec_start_date}_{ec_end_date}_{model}_zoom{zoom}"
 curtain_file = curtain_dir / f"ec_curtain_{curtain_label}.zarr"
 ### -------------------------------------------- ###
@@ -131,13 +131,14 @@ ds_curtain = ds_curtain.assign(
     track_lon=("track", ec_track_lon.data),
     track_lat=("track", ec_track_lat.data),
 )
-ds.assign_attrs(
-    start_date=ec_start_date,
-    end_date=ec_end_date,
-    date_format='YYYYMMDDThhmm'
-)
-
+ds_curtain.attrs.update({
+    "model_datetime": str(model_datetime),
+    "ec_track_start_date": ec_start_date,
+    "ec_track_end_date": ec_end_date,
+    "ec_track_date_format": 'YYYYMMDDThhmm'
+})
 # %% save curtain data to netcdf file
+curtain_dir.mkdir(parents=True, exist_ok=True)
 print(f"Writing curtain profiles in {curtain_dir}")
 ds_curtain.to_zarr(curtain_file)
 print(f"Curtain extracted and saved in {curtain_file.name}")
