@@ -131,12 +131,12 @@ ds_curtain = ds_curtain.assign(
     track_lon=("track", ec_track_lon.data),
     track_lat=("track", ec_track_lat.data),
 )
-ds.assign_attrs(
-    start_date=ec_start_date,
-    end_date=ec_end_date,
-    date_format='YYYYMMDDThhmm'
-)
-
+ds_curtain.attrs.update({
+    "model_datetime": str(model_datetime),
+    "ec_track_start_date": ec_start_date,
+    "ec_track_end_date": ec_end_date,
+    "ec_track_date_format": 'YYYYMMDDThhmm'
+})
 # %% save curtain data to netcdf file
 curtain_dir.mkdir(parents=True, exist_ok=True)
 print(f"Writing curtain profiles in {curtain_dir}")
