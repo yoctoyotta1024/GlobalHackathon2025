@@ -1,7 +1,9 @@
 # %% Import modules
 import easygems.remap as egr
 from easygems import healpix as egh
+import glob
 import intake
+import h5py
 import numpy as np
 import xarray as xr
 import warnings
@@ -13,23 +15,13 @@ warnings.filterwarnings(
 )  # don't warn us about future package conflicts
 
 # %% ------------- INPUT PARAMETERS ------------- ###
-# Earthcare file to get lat-lon track from
-ec_year = "2024" # format 'YYYY'
-ec_month = "08" # format 'MM'
-ec_day = "01" # format 'DD'
-ec_start_time = "T0008"  # format T'hhmm'
-ec_end_time = "T0019"  # format T'hhmm'
-
-ec_start_date = ec_year + ec_month + ec_day + ec_start_time
-ec_end_date = ec_year + ec_month + ec_day + ec_end_time
-ec_data_path = Path("/work") / "mh0731" / "m301196" / "ecomip"/ "ftp.eorc.jaxa.jp" / "eorc" / "CPR" / "1B" / "xCa" / ec_year / ec_month / ec_day
-ec_file = ec_data_path / f"ECA_J_CPR_NOM_1BS_{ec_start_date}_{ec_end_date}_00996H_vCa_corr_xCa.nc"
-
-# (optional) limits to lat-lon range of earthcare path
-ec_lon_min = None # degrees
-ec_lon_max = None # degrees
-ec_lat_min = None # degrees
-ec_lat_max = None # degrees
+# Earthcare files to get lat-lon track from
+ec_year = "2025" # format 'YYYY'
+ec_month = "04" # format 'MM'
+ec_day = "02"
+ec_data_path = Path("/work") / "mh0731" / "m301196" / "ecomip"/ "ftp.eorc.jaxa.jp" / "CPR" / "2A" / "CPR_CLP" / "vBa" / ec_year / ec_month / ec_day
+ec_file_search = f"ECA_J_CPR_CLP_2AS_{ec_year}{ec_month}{ec_day}T*_vBa.h5"
+ec_files = sorted(glob.glob(str(ec_data_path / ec_file_search)))
 
 # model, zoom level, and time for curtain dataset
 current_location = "EU"
@@ -38,31 +30,31 @@ zoom = 5
 model_year = "2020" # format 'YYYY'
 model_month = ec_month # format 'MM'
 model_day = ec_day # format 'DD'
-model_time = ec_start_time  # format T'hhmm'
 
-# name of exisiting or to-be-created weights file for this ec track and model
-weights_dir = Path("/work") / "mh0492" / "m301067" / "hackaton25" / "auxiliary-files" / "weights"
-weights_label = f"{ec_start_date}_{ec_end_date}_{model}_zoom{zoom}"
-weights_file = weights_dir / f"weights_ec_tracks_{weights_label}.nc"
+# name of exisiting or to-be-created directory for weights for ec tracks
+weights_dir = Path("/work") / "mh0492" / "m301067" / "hackaton25" / "auxiliary-files" / "weights" / ec_year / ec_month / ec_day
 
-# name of to-be-created curtain .zarr dataset for this ec track and model
+# name of to-be-created curtain .zarr dataset for a day of ec tracks and given model
 curtain_dir = Path("/work") / "mh0492" / "m301067" / "hackaton25" / "curtains" / model_year / model_month / model_day
-curtain_label = f"{ec_start_date}_{ec_end_date}_{model}_zoom{zoom}"
-curtain_file = curtain_dir / f"ec_curtain_{curtain_label}.zarr"
+curtain_label = f"{model_year}{model_month}{model_day}_{model}_zoom{zoom}"
+curtain_file = curtain_dir / f"ec_curtains_{curtain_label}.zarr"
 ### -------------------------------------------- ###
 
 # %% function definitions
-def read_earthcare_track(ec_file, engine_type="netcdf4"):
-    var = xr.open_dataset(ec_file, engine=engine_type)
-
-    lon = np.array(var['lon']).astype(np.float64)
-    lat = np.array(var['lat']).astype(np.float64)
-
+def read_earthcare_track(ec_file, engine_type="h5"):
+    if engine_type == "h5":
+        lon = h5py.File(ec_file, "r")["ScienceData/Geo/longitude"][:]
+        lat = h5py.File(ec_file, "r")["ScienceData/Geo/latitude"][:]
+    elif engine_type == "netcdf4":
+        var = xr.open_dataset(ec_file, engine=engine_type)
+        lon = np.array(var['lon']).astype(np.float64)
+        lat = np.array(var['lat']).astype(np.float64)
+    else:
+        raise ValueError(f"engine type {engine_type} not supported")
     return lon, lat
 
 def interpolate_to_track(ds, weights_file, track_lon, track_lat=None):
     if weights_file.is_file():
-        print("loading existing interpolation weights for this EC track")
         weights = xr.open_dataset(weights_file)
     else:
         print("computing weights using Delaunay triangulation")
@@ -95,48 +87,49 @@ def interpolate_to_track(ds, weights_file, track_lon, track_lat=None):
 
     return ds_interpolated
 
+def create_curtains_dataset(ds, ec_files, weights_dir):
+    weights_dir.mkdir(parents=True, exist_ok=True)
+
+    curtains = []
+    for f in ec_files:
+        # Load the EarthCARE track and select the time range
+        ec_track_lon, ec_track_lat = read_earthcare_track(f, engine_type="h5")
+
+        # Interpolating the dataset to the EarthCARE track
+        weights_label = f"{Path(f).stem}_{model}_zoom{zoom}"
+        weights_file = weights_dir / f"weights_ec_tracks_{weights_label}.nc"
+        ds_curtain = interpolate_to_track(
+            ds, weights_file, ec_track_lon, track_lat=ec_track_lat,
+        )
+
+        # Add track longitude, latitude, and time to the curtain datafile
+        ds_curtain = ds_curtain.assign(
+            track_lon=("track", ec_track_lon.data),
+            track_lat=("track", ec_track_lat.data),
+        )
+        curtains.append(ds_curtain)
+    curtains = xr.concat(curtains, dim="track")
+
+    return curtains
+
+
 # %% Load catalog and dataset at time nearest model time given
 cat = intake.open_catalog(
     "https://digital-earths-global-hackathon.github.io/catalog/catalog.yaml"
 )[current_location]
 
-model_hour = model_time[1:3]
-model_min = model_time[3:6]
-model_datetime = np.datetime64(f"{model_year}-{model_month}-{model_day}T{model_hour}:{model_min}")
+model_datetime = np.datetime64(f"{model_year}-{model_month}-{model_day}")
 ds = cat[model](zoom=zoom).to_dask().sel(time=model_datetime, method="nearest")
 
-# %% Load the EarthCARE track and select the time range
-ec_track_lon, ec_track_lat = read_earthcare_track(ec_file)
-
-# %% Trim track coordinates to be within the lat/lon bounds
-if ec_lon_min is not None and ec_lon_max is not None and ec_lat_min is not None and ec_lat_max is not None:
-    valid_indices = np.where(
-        (ec_track_lon >= ec_lon_min)
-        & (ec_track_lon <= ec_lon_max)
-        & (ec_track_lat >= ec_lat_min)
-        & (ec_track_lat <= ec_lat_min)
-    )[0]
-    ec_track_lon = ec_track_lon[valid_indices]
-    ec_track_lat = ec_track_lat[valid_indices]
-
-# %% Interpolating the dataset to the EarthCARE track
-ds_curtain = interpolate_to_track(
-    ds, weights_file, ec_track_lon, track_lat=ec_track_lat,
-)
-
-# Add track longitude, latitude, and time to the curtain datafile
-ds_curtain = ds_curtain.assign(
-    track_lon=("track", ec_track_lon.data),
-    track_lat=("track", ec_track_lat.data),
-)
-ds_curtain.attrs.update({
+ds_curtains = create_curtains_dataset(ds, ec_files, weights_dir)
+ds_curtains.attrs.update({
     "model_datetime": str(model_datetime),
-    "ec_track_start_date": ec_start_date,
-    "ec_track_end_date": ec_end_date,
-    "ec_track_date_format": 'YYYYMMDDThhmm'
+    "ec_track_date": ec_year + ec_month + ec_day,
+    "ec_track_date_format": 'YYYYMMDD'
 })
-# %% save curtain data to netcdf file
+
+# save curtain data to netcdf file
 curtain_dir.mkdir(parents=True, exist_ok=True)
-print(f"Writing curtain profiles in {curtain_dir}")
-ds_curtain.to_zarr(curtain_file)
+print(f"Writing curtains dataset in {curtain_dir}")
+ds_curtains.to_zarr(curtain_file)
 print(f"Curtain extracted and saved in {curtain_file.name}")
