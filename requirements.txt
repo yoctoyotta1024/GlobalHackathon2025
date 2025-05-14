@@ -11,3 +11,4 @@ pre-commit
 xarray
 healpy
 zarr
+h5py
