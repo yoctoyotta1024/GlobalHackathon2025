@@ -19,6 +19,9 @@ ec_lon_max = 160  # degrees
 ec_lat_min = 6  # degrees
 ec_lat_max = 12  # degrees
 
+ec_data_path = Path("/work" / "mh0731" / "m301196" / "ecomip"/ "ftp.eorc.jaxa.jp" / "eorc" / "CPR" / "1B" / "xCa" / "2024" / "08" / "01")
+ec_file = ec_data_path / "ECA_J_CPR_NOM_1BS_20240801T0008_20240801T0019_00996H_vCa_corr_xCa.nc"
+
 current_location = "EU"
 model = "icon_d3hp003"
 zoom = 5
@@ -33,6 +36,14 @@ weights_file = Path(
 ### -------------------------------------------- ###
 
 # %% function definitions
+def read_earthcare_track(ec_file, engine_type="netcdf4"):
+    var = xr.open_dataset(ec_file, engine=engine_type)
+
+    lon = np.array(var['lon']).astype(np.float64)
+    lat = np.array(var['lat']).astype(np.float64)
+
+    return lon, lat
+
 def interpolate_to_track(ds, weights_file, track_lon, track_lat=None):
     if weights_file.is_file():
         print("loading existing interpolation weights for this EC track")
@@ -72,11 +83,11 @@ cat = intake.open_catalog(
 ds = cat[model](zoom=zoom).to_dask()
 
 # %% Load the EarthCARE track and select the time range
-ec_datetime = np.datetime64(f"{ec_day}{ec_time}")
-start_time = ec_datetime - np.timedelta64(30, "m")
-end_time = ec_datetime + np.timedelta64(30, "m")
+ec_datetime = np.datetime64(f"{ec_day}{ec_time}") # TODO(ALL): use to generate ec file name
+start_time = ec_datetime - np.timedelta64(30, "m") # TODO(ALL): use to generate ec file name
+end_time = ec_datetime + np.timedelta64(30, "m") # TODO(ALL): use to generate ec file name
 
-ec_track = get_earthcare_track(ec_day, start_time, end_time)  # TODO(ALL): get EC track
+ec_track = read_earthcare_track(ec_file)
 ec_track_lon = ec_track.lon
 ec_track_lat = ec_track.lat
 ec_track_time = ec_track.time
