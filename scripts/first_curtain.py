@@ -13,35 +13,42 @@ warnings.filterwarnings(
 )  # don't warn us about future package conflicts
 
 # %% ------------- INPUT PARAMETERS ------------- ###
+# Earthcare file to get lat-lon track from
 ec_year = "2024" # format 'YYYY'
 ec_month = "08" # format 'MM'
 ec_day = "01" # format 'DD'
 ec_start_time = "T0008"  # format T'hhmm'
 ec_end_time = "T0019"  # format T'hhmm'
-ec_lon_min = None # degrees
-ec_lon_max = None # degrees
-ec_lat_min = None # degrees
-ec_lat_max = None # degrees
 
 ec_start_date = ec_year + ec_month + ec_day + ec_start_time
 ec_end_date = ec_year + ec_month + ec_day + ec_end_time
 ec_data_path = Path("/work") / "mh0731" / "m301196" / "ecomip"/ "ftp.eorc.jaxa.jp" / "eorc" / "CPR" / "1B" / "xCa" / ec_year / ec_month / ec_day
 ec_file = ec_data_path / f"ECA_J_CPR_NOM_1BS_{ec_start_date}_{ec_end_date}_00996H_vCa_corr_xCa.nc"
 
+# (optional) limits to lat-lon range of earthcare path
+ec_lon_min = None # degrees
+ec_lon_max = None # degrees
+ec_lat_min = None # degrees
+ec_lat_max = None # degrees
+
+# model, zoom level, and time for curtain dataset
 current_location = "EU"
 model = "icon_d3hp003"
 zoom = 5
-mdl_year = "2020" # format 'YYYY'
-mdl_month = ec_month # format 'MM'
-mdl_day = ec_day # format 'DD'
-mdl_time = ec_start_time  # format T'hhmm'
+model_year = "2020" # format 'YYYY'
+model_month = ec_month # format 'MM'
+model_day = ec_day # format 'DD'
+model_time = ec_start_time  # format T'hhmm'
 
-# define name of exisiting or to-be-created weights file for this EC track
+# name of exisiting or to-be-created weights file for this ec track and model
+weights_dir = Path("/work") / "mh0492" / "m301067" / "hackaton25" / "auxiliary-files" / "weights"
 weights_label = f"{ec_start_date}_{ec_end_date}_{model}_zoom{zoom}"
-weights_file = Path(
-    "/work") / "mh0492" / "m301067" / "hackaton25" / "auxiliary-files" / "weights" / f"weights_ec_tracks_{weights_label}.nc"
+weights_file = weights_dir / f"weights_ec_tracks_{weights_label}.nc"
 
+# name of to-be-created curtain .zarr dataset for this ec track and model
 curtain_dir = Path.cwd() / "bin"
+curtain_label = f"{ec_start_date}_{ec_end_date}_{model}_zoom{zoom}"
+curtain_file = curtain_dir / f"ec_curtain_{curtain_label}.zarr"
 ### -------------------------------------------- ###
 
 # %% function definitions
@@ -90,15 +97,15 @@ def interpolate_to_track(ds, weights_file, track_lon, track_lat=None):
 
     return ds_interpolated
 
-# %% Load catalog and dataset at tiem nearest model time given
+# %% Load catalog and dataset at time nearest model time given
 cat = intake.open_catalog(
     "https://digital-earths-global-hackathon.github.io/catalog/catalog.yaml"
 )[current_location]
 
-mdl_hour = mdl_time[1:3]
-mdl_min = mdl_time[3:6]
-mdl_datetime = np.datetime64(f"{mdl_year}-{mdl_month}-{mdl_day}T{mdl_hour}:{mdl_min}")
-ds = cat[model](zoom=zoom).to_dask().sel(time=mdl_datetime, method="nearest")
+model_hour = model_time[1:3]
+model_min = model_time[3:6]
+model_datetime = np.datetime64(f"{model_year}-{model_month}-{model_day}T{model_hour}:{model_min}")
+ds = cat[model](zoom=zoom).to_dask().sel(time=model_datetime, method="nearest")
 
 # %% Load the EarthCARE track and select the time range
 ec_track_lon, ec_track_lat = read_earthcare_track(ec_file)
@@ -132,7 +139,5 @@ ds.assign_attrs(
 
 # %% save curtain data to netcdf file
 print(f"Writing curtain profiles in {curtain_dir}")
-curtain_label = f"{ec_start_date}_{ec_end_date}_{model}_zoom{zoom}"
-curtain_file = curtain_dir / f"ec_curtain_{curtain_label}.zarr"
 ds_curtain.to_zarr(curtain_file)
 print(f"Curtain extracted and saved in {curtain_file.name}")
