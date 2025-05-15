@@ -22,6 +22,12 @@ ZOOM=7
 YEAR=2025
 MONTH=04
 
+export MALLOC_TRIM_THRESHOLD_="-1"
+
+stacksize_limit=204800
+ulimit -s ${stacksize_limit}
+ulimit -c 0
+
 for DAY in {01..30}; do
     echo "Extracting curtains for model $MODEL at zoom-lvl $ZOOM for $YEAR/$MONTH/$DAY"
     $python $global_hackathon_dir/scripts/create_curtain_datasets/write_curtain.py $MODEL $ZOOM "$YEAR/$MONTH/$DAY"
