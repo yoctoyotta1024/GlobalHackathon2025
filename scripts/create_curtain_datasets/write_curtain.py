@@ -57,7 +57,7 @@ def interpolate_to_track(ds, weights_file, track_lon, track_lat=None):
 
     return ds_interpolated
 
-def create_curtains_dataset(ds, ec_files, weights_dir):
+def create_curtains_dataset(model, zoom, ds, ec_files, weights_dir):
     weights_dir.mkdir(parents=True, exist_ok=True)
 
     curtains = []
@@ -105,7 +105,7 @@ def write_curtain(model, zoom, date, current_location="EU"):
     ds = cat[model](zoom=zoom).to_dask().sel(time=model_datetime, method="nearest")
 
     # Create curtain dataset for model along points of track in ec_file
-    ds_curtains = create_curtains_dataset(ds, ec_files, weights_dir)
+    ds_curtains = create_curtains_dataset(model, zoom, ds, ec_files, weights_dir)
     ds_curtains.attrs.update({
         "model_datetime": str(model_datetime),
         "ec_track_date": ec_year + ec_month + ec_day,
