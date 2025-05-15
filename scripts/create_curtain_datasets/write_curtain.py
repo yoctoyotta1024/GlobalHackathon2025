@@ -31,11 +31,14 @@ def interpolate_to_track(ds, weights_file, track_lon, track_lat=None):
         weights = xr.open_dataset(weights_file)
     else:
         print("computing weights using Delaunay triangulation")
-        ds = (
-            ds.rename_dims({"value": "cell"}).pipe(egh.attach_coords)
-            if "value" in ds.dims
-            else ds.pipe(egh.attach_coords)
-        )
+        if "value" in ds.dims:
+            if "cell" not in ds.dims:
+                ds = ds.rename_dims({"value": "cell"}).pipe(egh.attach_coords)
+            else:
+                # Handle the case where "cell" already exists
+                ds = ds.swap_dims({"value": "cell"}).pipe(egh.attach_coords)
+        else:
+            ds = ds.pipe(egh.attach_coords)
         weights = egr.compute_weights_delaunay(
             points=(ds["lon"].values, ds["lat"].values),
             xi=(track_lon, track_lat),
