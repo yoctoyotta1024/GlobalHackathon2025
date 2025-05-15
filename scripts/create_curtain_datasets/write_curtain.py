@@ -57,6 +57,10 @@ def interpolate_to_track(ds, weights_file, track_lon, track_lat=None):
 
     return ds_interpolated
 
+def coarsen_dataset(ds, nlevels_coarsen):
+  # each coarsening by 4 will reduce the data by one zoom level
+  return ds.coarsen(cell=4**nlevels_coarsen).mean()
+
 def create_curtains_dataset(model, zoom, ds, ec_files, weights_dir):
     weights_dir.mkdir(parents=True, exist_ok=True)
 
@@ -82,7 +86,7 @@ def create_curtains_dataset(model, zoom, ds, ec_files, weights_dir):
 
     return curtains
 
-def write_curtain(model, zoom, date, current_location="EU"):
+def write_curtain(model, zoom, date, current_location="EU", nlevels_coarsen=0):
     ec_year, ec_month, ec_day = date.split('/')
     ec_data_path = Path("/work") / "mh0731" / "m301196" / "ecomip" / "ftp.eorc.jaxa.jp" / "CPR" / "2A" / "CPR_CLP" / "vBa" / ec_year / ec_month / ec_day
     ec_file_search = f"ECA_J_CPR_CLP_2AS_{ec_year}{ec_month}{ec_day}T*_vBa.h5"
@@ -103,6 +107,8 @@ def write_curtain(model, zoom, date, current_location="EU"):
     )[current_location]
     model_datetime = np.datetime64(f"{model_year}-{model_month}-{model_day}")
     ds = cat[model](zoom=zoom).to_dask().sel(time=model_datetime, method="nearest")
+    if nlevels_coarsen > 0:
+        ds = coarsen_dataset(ds, nlevels_coarsen)
 
     # Create curtain dataset for model along points of track in ec_file
     ds_curtains = create_curtains_dataset(model, zoom, ds, ec_files, weights_dir)
@@ -123,5 +129,8 @@ if __name__ == "__main__":
     parser.add_argument('model', help="name of the model, e.g. 'icon_d3hp003'")
     parser.add_argument('zoom', type=int, help="zoom level")
     parser.add_argument('date', help="earthcare track date in format 'YYYY/MM/DD'")
+    parser.add_argument('--nlevels_coarsen', type=int,
+                        help="number of zoom levels to coarsen dataset by",
+                        default=0)
     args = parser.parse_args()
-    write_curtain(args.model, args.zoom, args.date)
+    write_curtain(args.model, args.zoom, args.date, nlevels_coarsen=args.nlevels_coarsen)
