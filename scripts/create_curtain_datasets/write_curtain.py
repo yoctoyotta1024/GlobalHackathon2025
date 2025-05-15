@@ -4,6 +4,7 @@ import glob
 import h5py
 import intake
 import numpy as np
+import shutil
 import os
 import warnings
 import xarray as xr
@@ -30,11 +31,14 @@ def interpolate_to_track(ds, weights_file, track_lon, track_lat=None):
         weights = xr.open_dataset(weights_file)
     else:
         print("computing weights using Delaunay triangulation")
-        ds = (
-            ds.rename_dims({"value": "cell"}).pipe(egh.attach_coords)
-            if "value" in ds.dims
-            else ds.pipe(egh.attach_coords)
-        )
+        if "value" in ds.dims:
+            if "cell" not in ds.dims:
+                ds = ds.rename_dims({"value": "cell"}).pipe(egh.attach_coords)
+            else:
+                # Handle the case where "cell" already exists
+                ds = ds.swap_dims({"value": "cell"}).pipe(egh.attach_coords)
+        else:
+            ds = ds.pipe(egh.attach_coords)
         weights = egr.compute_weights_delaunay(
             points=(ds["lon"].values, ds["lat"].values),
             xi=(track_lon, track_lat),
@@ -125,7 +129,16 @@ def write_curtain(model, zoom, date, current_location="EU", nlevels_coarsen=0):
     # write out .zarr curtain dataset
     curtain_dir.mkdir(parents=True, exist_ok=True)
     print(f"Writing curtains dataset in {curtain_dir}")
-    ds_curtains.to_zarr(curtain_file)
+    if curtain_file.is_dir():
+        print(f"WARNING: overwriting exisiting zarr dataset: {curtain_file}")
+        shutil.rmtree(curtain_file)
+    try:
+        ds_curtains.to_zarr(curtain_file)
+    except ValueError:
+        print(f"WARNING: re-chunking dask chunks")
+        shutil.rmtree(curtain_file)
+        ds_curtains = ds_curtains.chunk(4096)
+        ds_curtains.to_zarr(curtain_file)
     print(f"Curtain extracted and saved in {curtain_file.name}")
 
 if __name__ == "__main__":
