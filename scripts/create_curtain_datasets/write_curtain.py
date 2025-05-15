@@ -129,7 +129,13 @@ def write_curtain(model, zoom, date, current_location="EU", nlevels_coarsen=0):
     if curtain_file.is_dir():
         print(f"WARNING: overwriting exisiting zarr dataset: {curtain_file}")
         shutil.rmtree(curtain_file)
-    ds_curtains.to_zarr(curtain_file)
+    try:
+        ds_curtains.to_zarr(curtain_file)
+    except ValueError:
+        print(f"WARNING: re-chunking dask chunks")
+        shutil.rmtree(curtain_file)
+        ds_curtains = ds_curtains.chunk(4096)
+        ds_curtains.to_zarr(curtain_file)
     print(f"Curtain extracted and saved in {curtain_file.name}")
 
 if __name__ == "__main__":
