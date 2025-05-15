@@ -99,7 +99,7 @@ def create_curtains_dataset(model, zoom, ds, ec_files, weights_dir):
 def write_curtain(model, zoom, date, current_location="EU", nlevels_coarsen=0):
     ec_year, ec_month, ec_day = date.split('/')
     ec_data_path = Path("/work") / "mh0731" / "m301196" / "ecomip" / "ftp.eorc.jaxa.jp" / "CPR" / "2A" / "CPR_CLP" / "vBa" / ec_year / ec_month / ec_day
-    ec_file_search = f"ECA_J_CPR_CLP_2AS_{ec_year}{ec_month}{ec_day}T*_vBa.h5"
+    ec_file_search = f"ECA_J_CPR_CLP_2AS_{ec_year}{ec_month}{ec_day}T*.h5"
     ec_files = sorted(glob.glob(str(ec_data_path / ec_file_search)))
 
     model_year = "2020"
