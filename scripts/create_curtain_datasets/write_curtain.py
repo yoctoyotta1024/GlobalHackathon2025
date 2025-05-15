@@ -39,10 +39,12 @@ def interpolate_to_track(ds, weights_file, track_lon, track_lat=None):
                 ds = ds.swap_dims({"value": "cell"}).pipe(egh.attach_coords)
         else:
             ds = ds.pipe(egh.attach_coords)
+        track_lon += 180
         weights = egr.compute_weights_delaunay(
             points=(ds["lon"].values, ds["lat"].values),
             xi=(track_lon, track_lat),
         )
+        track_lon -= 180
         weights.to_netcdf(weights_file)
         os.chmod(weights_file, 0o777)
 
