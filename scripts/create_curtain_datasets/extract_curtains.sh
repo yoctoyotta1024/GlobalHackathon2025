@@ -4,20 +4,25 @@
 #SBATCH --job-name=curtains
 #SBATCH --partition=compute
 #SBATCH --nodes=1
-#SBATCH --time=08:00:00
-#SBATCH --account=mh0492
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=64GB
+#SBATCH --time=00:30:00
+#SBATCH --account=bm1183
 #SBATCH --output=logs/log.%x.%j.out
+#SBATCH --error=logs/err.%x.%j.out
 #_____________________________________________________________________________
 
 # Source python environment
-source /home/m/m301067/.bashrc
+python=/work/bm1183/m300950/bin/envs/clouds/bin/python
+global_hackathon_dir=$HOME/GlobalHackathon2025
 
-MODEL="icon_d3hp003"
-ZOOM=5
+MODEL="ifs_tco3999-ng5_rcbmf_cf"
+ZOOM=7
 YEAR=2025
-MONTH=04
+MONTH=05
 
 for DAY in {01..30}; do
     echo "Extracting curtains for model $MODEL at zoom-lvl $ZOOM for $YEAR/$MONTH/$DAY"
-    python3 process_curtains.py $MODEL $ZOOM "$YEAR/$MONTH/$DAY"
+    $python $global_hackathon_dir/scripts/create_curtain_datasets/write_curtain.py $MODEL $ZOOM "$YEAR/$MONTH/$DAY"
 done

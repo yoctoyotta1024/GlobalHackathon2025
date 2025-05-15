@@ -1,13 +1,15 @@
 import argparse
-from pathlib import Path
 import easygems.remap as egr
-from easygems import healpix as egh
 import glob
 import h5py
-import numpy as np
-import xarray as xr
-import warnings
 import intake
+import numpy as np
+import os
+import warnings
+import xarray as xr
+
+from easygems import healpix as egh
+from pathlib import Path
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 
@@ -38,6 +40,7 @@ def interpolate_to_track(ds, weights_file, track_lon, track_lat=None):
             xi=(track_lon, track_lat),
         )
         weights.to_netcdf(weights_file)
+        os.chmod(weights_file, 0o777)
 
     # Apply weights to interpolate the dataset
     ds_interpolated = xr.apply_ufunc(
@@ -51,6 +54,7 @@ def interpolate_to_track(ds, weights_file, track_lon, track_lat=None):
         dask="parallelized",
         dask_gufunc_kwargs={
             "output_sizes": {"track": len(track_lon)},
+            "allow_rechunk": True,
         },
         keep_attrs=True,
     )
