@@ -20,7 +20,7 @@ global_hackathon_dir=$HOME/GlobalHackathon2025
 MODEL="ifs_tco3999-ng5_rcbmf_cf"
 ZOOM=7
 YEAR=2025
-MONTH=05
+MONTH=04
 
 for DAY in {01..30}; do
     echo "Extracting curtains for model $MODEL at zoom-lvl $ZOOM for $YEAR/$MONTH/$DAY"
