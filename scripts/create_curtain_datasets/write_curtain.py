@@ -1,46 +1,16 @@
-# %% Import modules
+import argparse
+from pathlib import Path
 import easygems.remap as egr
 from easygems import healpix as egh
 import glob
-import intake
 import h5py
 import numpy as np
 import xarray as xr
 import warnings
+import intake
 
-from pathlib import Path
+warnings.filterwarnings("ignore", category=FutureWarning)
 
-warnings.filterwarnings(
-    "ignore", category=FutureWarning
-)  # don't warn us about future package conflicts
-
-# %% ------------- INPUT PARAMETERS ------------- ###
-# Earthcare files to get lat-lon track from
-ec_year = "2025" # format 'YYYY'
-ec_month = "04" # format 'MM'
-ec_day = "02"
-ec_data_path = Path("/work") / "mh0731" / "m301196" / "ecomip"/ "ftp.eorc.jaxa.jp" / "CPR" / "2A" / "CPR_CLP" / "vBa" / ec_year / ec_month / ec_day
-ec_file_search = f"ECA_J_CPR_CLP_2AS_{ec_year}{ec_month}{ec_day}T*_vBa.h5"
-ec_files = sorted(glob.glob(str(ec_data_path / ec_file_search)))
-
-# model, zoom level, and time for curtain dataset
-current_location = "EU"
-model = "icon_d3hp003"
-zoom = 5
-model_year = "2020" # format 'YYYY'
-model_month = ec_month # format 'MM'
-model_day = ec_day # format 'DD'
-
-# name of exisiting or to-be-created directory for weights for ec tracks
-weights_dir = Path("/work") / "mh0492" / "m301067" / "hackaton25" / "auxiliary-files" / "weights" / ec_year / ec_month / ec_day
-
-# name of to-be-created curtain .zarr dataset for a day of ec tracks and given model
-curtain_dir = Path("/work") / "mh0492" / "m301067" / "hackaton25" / "curtains" / model_year / model_month / model_day
-curtain_label = f"{model_year}{model_month}{model_day}_{model}_zoom{zoom}"
-curtain_file = curtain_dir / f"ec_curtains_{curtain_label}.zarr"
-### -------------------------------------------- ###
-
-# %% function definitions
 def read_earthcare_track(ec_file, engine_type="h5"):
     if engine_type == "h5":
         lon = h5py.File(ec_file, "r")["ScienceData/Geo/longitude"][:]
@@ -87,7 +57,7 @@ def interpolate_to_track(ds, weights_file, track_lon, track_lat=None):
 
     return ds_interpolated
 
-def create_curtains_dataset(ds, ec_files, weights_dir):
+def create_curtains_dataset(model, zoom, ds, ec_files, weights_dir):
     weights_dir.mkdir(parents=True, exist_ok=True)
 
     curtains = []
@@ -112,24 +82,46 @@ def create_curtains_dataset(ds, ec_files, weights_dir):
 
     return curtains
 
+def write_curtain(model, zoom, date, current_location="EU"):
+    ec_year, ec_month, ec_day = date.split('/')
+    ec_data_path = Path("/work") / "mh0731" / "m301196" / "ecomip" / "ftp.eorc.jaxa.jp" / "CPR" / "2A" / "CPR_CLP" / "vBa" / ec_year / ec_month / ec_day
+    ec_file_search = f"ECA_J_CPR_CLP_2AS_{ec_year}{ec_month}{ec_day}T*_vBa.h5"
+    ec_files = sorted(glob.glob(str(ec_data_path / ec_file_search)))
 
-# %% Load catalog and dataset at time nearest model time given
-cat = intake.open_catalog(
-    "https://digital-earths-global-hackathon.github.io/catalog/catalog.yaml"
-)[current_location]
+    model_year = "2020"
+    model_month = ec_month
+    model_day = ec_day
 
-model_datetime = np.datetime64(f"{model_year}-{model_month}-{model_day}")
-ds = cat[model](zoom=zoom).to_dask().sel(time=model_datetime, method="nearest")
+    weights_dir = Path("/work") / "mh0492" / "m301067" / "hackaton25" / "auxiliary-files" / "weights" / ec_year / ec_month / ec_day
+    curtain_dir = Path("/work") / "mh0492" / "m301067" / "hackaton25" / "curtains" / model_year / model_month / model_day
+    curtain_label = f"{model_year}{model_month}{model_day}_{model}_zoom{zoom}"
+    curtain_file = curtain_dir / f"ec_curtains_{curtain_label}.zarr"
 
-ds_curtains = create_curtains_dataset(ds, ec_files, weights_dir)
-ds_curtains.attrs.update({
-    "model_datetime": str(model_datetime),
-    "ec_track_date": ec_year + ec_month + ec_day,
-    "ec_track_date_format": 'YYYYMMDD'
-})
+    # Load catalog and dataset at time nearest model time given
+    cat = intake.open_catalog(
+        "https://digital-earths-global-hackathon.github.io/catalog/catalog.yaml"
+    )[current_location]
+    model_datetime = np.datetime64(f"{model_year}-{model_month}-{model_day}")
+    ds = cat[model](zoom=zoom).to_dask().sel(time=model_datetime, method="nearest")
 
-# save curtain data to netcdf file
-curtain_dir.mkdir(parents=True, exist_ok=True)
-print(f"Writing curtains dataset in {curtain_dir}")
-ds_curtains.to_zarr(curtain_file)
-print(f"Curtain extracted and saved in {curtain_file.name}")
+    # Create curtain dataset for model along points of track in ec_file
+    ds_curtains = create_curtains_dataset(model, zoom, ds, ec_files, weights_dir)
+    ds_curtains.attrs.update({
+        "model_datetime": str(model_datetime),
+        "ec_track_date": ec_year + ec_month + ec_day,
+        "ec_track_date_format": 'YYYYMMDD'
+    })
+
+    # write out .zarr curtain dataset
+    curtain_dir.mkdir(parents=True, exist_ok=True)
+    print(f"Writing curtains dataset in {curtain_dir}")
+    ds_curtains.to_zarr(curtain_file)
+    print(f"Curtain extracted and saved in {curtain_file.name}")
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="script to write .zarr curtain dataset for a day")
+    parser.add_argument('model', help="name of the model, e.g. 'icon_d3hp003'")
+    parser.add_argument('zoom', type=int, help="zoom level")
+    parser.add_argument('date', help="earthcare track date in format 'YYYY/MM/DD'")
+    args = parser.parse_args()
+    write_curtain(args.model, args.zoom, args.date)
