@@ -4,6 +4,7 @@ import glob
 import h5py
 import intake
 import numpy as np
+import shutil
 import os
 import warnings
 import xarray as xr
@@ -125,6 +126,9 @@ def write_curtain(model, zoom, date, current_location="EU", nlevels_coarsen=0):
     # write out .zarr curtain dataset
     curtain_dir.mkdir(parents=True, exist_ok=True)
     print(f"Writing curtains dataset in {curtain_dir}")
+    if curtain_file.is_dir():
+        print(f"WARNING: overwriting exisiting zarr dataset: {curtain_file}")
+        shutil.rmtree(curtain_file)
     ds_curtains.to_zarr(curtain_file)
     print(f"Curtain extracted and saved in {curtain_file.name}")
 
