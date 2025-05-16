@@ -79,7 +79,7 @@ def plot_tracks_height_colormap(ax, cax, var, cmap, norm=None, lab=None, units=T
 
 # %%
 fig = plt.figure(figsize=(5, 5))
-fig.suptitle(f"{model} z{zoom} at surface 2020/{month}{day}")
+fig.suptitle(f"{model} z{zoom} at surface 2020/{month}/{day}")
 nrows=2
 gs = gridspec.GridSpec(ncols=2, nrows=nrows, figure=fig, width_ratios=[27, 1])
 
@@ -106,7 +106,7 @@ plt.savefig(savename, bbox_inches="tight", dpi=180)
 
 # %%
 fig = plt.figure(figsize=(5, 8))
-fig.suptitle(f"{model} z{zoom} 2020/{month}{day}")
+fig.suptitle(f"{model} z{zoom} 2020/{month}/{day}")
 nrows=2
 gs = gridspec.GridSpec(ncols=2, nrows=nrows, figure=fig, width_ratios=[27, 1])
 
@@ -135,7 +135,7 @@ plt.savefig(savename, bbox_inches="tight", dpi=180)
 
 # %%
 fig = plt.figure(figsize=(5, 10))
-fig.suptitle(f"{model} z{zoom} at surface 2020/{month}{day}")
+fig.suptitle(f"{model} z{zoom} at surface 2020/{month}/{day}")
 nrows=4
 gs = gridspec.GridSpec(ncols=2, nrows=nrows, figure=fig, width_ratios=[27, 1])
 
@@ -160,7 +160,7 @@ plt.savefig(savename, bbox_inches="tight", dpi=180)
 
 # %%
 fig = plt.figure(figsize=(12, 5))
-fig.suptitle(f"{model} z{zoom} 2020/{month}{day}")
+fig.suptitle(f"{model} z{zoom} 2020/{month}/{day}")
 nrows=2
 gs = gridspec.GridSpec(ncols=4, nrows=nrows, figure=fig, width_ratios=[1, 27, 25, 1])
 
