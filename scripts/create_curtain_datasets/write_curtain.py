@@ -1,13 +1,16 @@
 import argparse
-from pathlib import Path
 import easygems.remap as egr
-from easygems import healpix as egh
 import glob
 import h5py
-import numpy as np
-import xarray as xr
-import warnings
 import intake
+import numpy as np
+import shutil
+import os
+import warnings
+import xarray as xr
+
+from easygems import healpix as egh
+from pathlib import Path
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 
@@ -28,16 +31,22 @@ def interpolate_to_track(ds, weights_file, track_lon, track_lat=None):
         weights = xr.open_dataset(weights_file)
     else:
         print("computing weights using Delaunay triangulation")
-        ds = (
-            ds.rename_dims({"value": "cell"}).pipe(egh.attach_coords)
-            if "value" in ds.dims
-            else ds.pipe(egh.attach_coords)
-        )
+        if "value" in ds.dims:
+            if "cell" not in ds.dims:
+                ds = ds.rename_dims({"value": "cell"}).pipe(egh.attach_coords)
+            else:
+                # Handle the case where "cell" already exists
+                ds = ds.swap_dims({"value": "cell"}).pipe(egh.attach_coords)
+        else:
+            ds = ds.pipe(egh.attach_coords)
+        track_lon += 180
         weights = egr.compute_weights_delaunay(
             points=(ds["lon"].values, ds["lat"].values),
             xi=(track_lon, track_lat),
         )
+        track_lon -= 180
         weights.to_netcdf(weights_file)
+        os.chmod(weights_file, 0o777)
 
     # Apply weights to interpolate the dataset
     ds_interpolated = xr.apply_ufunc(
@@ -51,11 +60,16 @@ def interpolate_to_track(ds, weights_file, track_lon, track_lat=None):
         dask="parallelized",
         dask_gufunc_kwargs={
             "output_sizes": {"track": len(track_lon)},
+            "allow_rechunk": True,
         },
         keep_attrs=True,
     )
 
     return ds_interpolated
+
+def coarsen_dataset(ds, nlevels_coarsen):
+  # each coarsening by 4 will reduce the data by one zoom level
+  return ds.coarsen(cell=4**nlevels_coarsen).mean()
 
 def create_curtains_dataset(model, zoom, ds, ec_files, weights_dir):
     weights_dir.mkdir(parents=True, exist_ok=True)
@@ -82,10 +96,10 @@ def create_curtains_dataset(model, zoom, ds, ec_files, weights_dir):
 
     return curtains
 
-def write_curtain(model, zoom, date, current_location="EU"):
+def write_curtain(model, zoom, date, current_location="EU", nlevels_coarsen=0):
     ec_year, ec_month, ec_day = date.split('/')
     ec_data_path = Path("/work") / "mh0731" / "m301196" / "ecomip" / "ftp.eorc.jaxa.jp" / "CPR" / "2A" / "CPR_CLP" / "vBa" / ec_year / ec_month / ec_day
-    ec_file_search = f"ECA_J_CPR_CLP_2AS_{ec_year}{ec_month}{ec_day}T*_vBa.h5"
+    ec_file_search = f"ECA_J_CPR_CLP_2AS_{ec_year}{ec_month}{ec_day}T*.h5"
     ec_files = sorted(glob.glob(str(ec_data_path / ec_file_search)))
 
     model_year = "2020"
@@ -103,6 +117,8 @@ def write_curtain(model, zoom, date, current_location="EU"):
     )[current_location]
     model_datetime = np.datetime64(f"{model_year}-{model_month}-{model_day}")
     ds = cat[model](zoom=zoom).to_dask().sel(time=model_datetime, method="nearest")
+    if nlevels_coarsen > 0:
+        ds = coarsen_dataset(ds, nlevels_coarsen)
 
     # Create curtain dataset for model along points of track in ec_file
     ds_curtains = create_curtains_dataset(model, zoom, ds, ec_files, weights_dir)
@@ -115,7 +131,16 @@ def write_curtain(model, zoom, date, current_location="EU"):
     # write out .zarr curtain dataset
     curtain_dir.mkdir(parents=True, exist_ok=True)
     print(f"Writing curtains dataset in {curtain_dir}")
-    ds_curtains.to_zarr(curtain_file)
+    if curtain_file.is_dir():
+        print(f"WARNING: overwriting exisiting zarr dataset: {curtain_file}")
+        shutil.rmtree(curtain_file)
+    try:
+        ds_curtains.to_zarr(curtain_file)
+    except ValueError:
+        print(f"WARNING: re-chunking dask chunks")
+        shutil.rmtree(curtain_file)
+        ds_curtains = ds_curtains.chunk(4096)
+        ds_curtains.to_zarr(curtain_file)
     print(f"Curtain extracted and saved in {curtain_file.name}")
 
 if __name__ == "__main__":
@@ -123,5 +148,8 @@ if __name__ == "__main__":
     parser.add_argument('model', help="name of the model, e.g. 'icon_d3hp003'")
     parser.add_argument('zoom', type=int, help="zoom level")
     parser.add_argument('date', help="earthcare track date in format 'YYYY/MM/DD'")
+    parser.add_argument('--nlevels_coarsen', type=int,
+                        help="number of zoom levels to coarsen dataset by",
+                        default=0)
     args = parser.parse_args()
-    write_curtain(args.model, args.zoom, args.date)
+    write_curtain(args.model, args.zoom, args.date, nlevels_coarsen=args.nlevels_coarsen)
