@@ -12,6 +12,8 @@ import xarray as xr
 from easygems import healpix as egh
 from pathlib import Path
 
+from data_utils import datetime_from_data_array_time
+
 warnings.filterwarnings("ignore", category=FutureWarning)
 
 def read_earthcare_track(ec_file, engine_type="h5"):
@@ -77,7 +79,11 @@ def create_curtains_dataset(model, zoom, ds, ec_files, weights_dir):
     curtains = []
     for f in ec_files:
         # Load the EarthCARE track and select the time range
-        ec_track_lon, ec_track_lat = read_earthcare_track(f, engine_type="h5")
+        if f.endswith('.h5'):
+            engine = "h5"
+        else:
+            engine = "netcdf4"
+        ec_track_lon, ec_track_lat = read_earthcare_track(f, engine_type=engine)
 
         # Interpolating the dataset to the EarthCARE track
         weights_label = f"{Path(f).stem}_{model}_zoom{zoom}"
@@ -96,27 +102,45 @@ def create_curtains_dataset(model, zoom, ds, ec_files, weights_dir):
 
     return curtains
 
-def write_curtain(model, zoom, date, current_location="EU", nlevels_coarsen=0):
+def write_curtain(model, zoom, date, current_location="EU", nlevels_coarsen=0, curtain_file=None):
     ec_year, ec_month, ec_day = date.split('/')
-    ec_data_path = Path("/work") / "mh0731" / "m301196" / "ecomip" / "ftp.eorc.jaxa.jp" / "CPR" / "2A" / "CPR_CLP" / "vBa" / ec_year / ec_month / ec_day
-    ec_file_search = f"ECA_J_CPR_CLP_2AS_{ec_year}{ec_month}{ec_day}T*.h5"
-    ec_files = sorted(glob.glob(str(ec_data_path / ec_file_search)))
-
-    model_year = "2020"
+    model_year = "2024"
     model_month = ec_month
     model_day = ec_day
+    if curtain_file:
+        ec_files = [curtain_file]
+        model_time = (ec_files[0][101:106])
+    else:
+        ec_data_path = Path("/work") / "mh0731" / "m301196" / "ecomip" / "ftp.eorc.jaxa.jp" / "eorc" / "CPR" / "1B" / "xCa" / ec_year / ec_month / ec_day
+        ec_file_search = f"ECA_J_CPR_NOM_1BS_{ec_year}{ec_month}{ec_day}T*_vCa_corr_xCa.nc"
+        print(ec_data_path)
+        print(ec_file_search)
+        ec_files = sorted(glob.glob(str(ec_data_path / ec_file_search)))[4:5]
+        model_time = (ec_files[0][98:103])
 
-    weights_dir = Path("/work") / "mh0492" / "m301067" / "hackaton25" / "auxiliary-files" / "weights" / ec_year / ec_month / ec_day
-    curtain_dir = Path("/work") / "mh0492" / "m301067" / "hackaton25" / "curtains" / model_year / model_month / model_day
+
+    # weights_dir = Path("/work") / "mh0492" / "m301067" / "hackaton25" / "auxiliary-files" / "weights" / ec_year / ec_month / ec_day
+    weights_dir = Path.cwd() / "weights"
+    # curtain_dir = Path("/work") / "mh0492" / "m301067" / "hackaton25" / "curtains" / model_year / model_month / model_day
+    curtain_dir = Path.cwd() / "curtains"
     curtain_label = f"{model_year}{model_month}{model_day}_{model}_zoom{zoom}"
     curtain_file = curtain_dir / f"ec_curtains_{curtain_label}.zarr"
 
     # Load catalog and dataset at time nearest model time given
-    cat = intake.open_catalog(
-        "https://digital-earths-global-hackathon.github.io/catalog/catalog.yaml"
-    )[current_location]
-    model_datetime = np.datetime64(f"{model_year}-{model_month}-{model_day}")
-    ds = cat[model](zoom=zoom).to_dask().sel(time=model_datetime, method="nearest")
+    # cat = intake.open_catalog(
+    #     "https://digital-earths-global-hackathon.github.io/catalog/catalog.yaml"
+    # )[current_location]
+    model_hour = model_time[1:3]
+    model_min = model_time[3:6]
+    model_datetime = np.datetime64(f"{model_year}-{model_month}-{model_day}T{model_hour}:{model_min}")
+    frac = (float(model_hour) + float(model_min) / 60) / 24
+    model_datetime = int(f"{model_year}{model_month}{model_day}") + frac
+    # model_datetime = np.datetime64(f"{model_year}-{model_month}-{model_day}")
+    # ds = cat[model](zoom=zoom).to_dask().sel(time=model_datetime, method="nearest")
+    store = 'aerosols.zarr'
+    data_path = Path('/work/bb1215/b382013/output/processed/Africa-dust-lam/20231222/default/aug', store)
+    ds = xr.open_dataset(data_path)
+    ds = ds.sel(time=model_datetime, method="nearest")
     if nlevels_coarsen > 0:
         ds = coarsen_dataset(ds, nlevels_coarsen)
 
@@ -152,4 +176,15 @@ if __name__ == "__main__":
                         help="number of zoom levels to coarsen dataset by",
                         default=0)
     args = parser.parse_args()
-    write_curtain(args.model, args.zoom, args.date, nlevels_coarsen=args.nlevels_coarsen)
+    # write_curtain(args.model, args.zoom, args.date, nlevels_coarsen=args.nlevels_coarsen)
+    ec_files = [
+        "/work/mh0731/m301196/ecomip/ftp.eorc.jaxa.jp/ATL/2A/ATL_CLA/vBa/2025/04/26/ECA_J_ATL_CLA_2AS_20250426T0332_20250426T0344_05169A_vBa.h5",
+        "/work/mh0731/m301196/ecomip/ftp.eorc.jaxa.jp/ATL/2A/ATL_CLA/vBa/2025/04/27/ECA_J_ATL_CLA_2AS_20250427T0413_20250427T0425_05185A_vBa.h5",
+        "/work/mh0731/m301196/ecomip/ftp.eorc.jaxa.jp/ATL/2A/ATL_CLA/vBa/2025/04/28/ECA_J_ATL_CLA_2AS_20250428T0321_20250428T0333_05200A_vBa.h5",
+        "/work/mh0731/m301196/ecomip/ftp.eorc.jaxa.jp/ATL/2A/ATL_CLA/vBa/2025/04/29/ECA_J_ATL_CLA_2AS_20250429T0402_20250429T0413_05216A_vBa.h5",
+        "/work/mh0731/m301196/ecomip/ftp.eorc.jaxa.jp/ATL/2A/ATL_CLA/vBa/2025/04/30/ECA_J_ATL_CLA_2AS_20250430T0310_20250430T0321_05231A_vBa.h5"
+    ]
+    dates = ["2025/04/26", "2025/04/27", "2025/04/28", "2025/04/29", "2025/04/30"]
+    for i, file in enumerate(ec_files):
+        # write_curtain(args.model, args.zoom, dates[i], curtain_file = file)
+        write_curtain(args.model, args.zoom, args.date, nlevels_coarsen=args.nlevels_coarsen, curtain_file = file)
